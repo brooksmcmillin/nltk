@@ -349,8 +349,7 @@ class Maxent_NE_Chunker(NEChunkParser):
         mpg = ecg._mapping
         lab = ecg._labels
         aon = ecg._alwayson
-        fmt = self._fmt
-        save_maxent_params(wgt, mpg, lab, aon, tab_dir=f"/tmp/english_ace_{fmt}/")
+        return save_maxent_params(wgt, mpg, lab, aon)
 
 
 def build_model(fmt="multiclass"):

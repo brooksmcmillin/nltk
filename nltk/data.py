@@ -38,6 +38,7 @@ import os
 import pickle
 import re
 import sys
+import tempfile
 import textwrap
 import urllib.request
 import zipfile
@@ -51,6 +52,7 @@ from urllib.request import url2pathname
 from nltk.pathsec import ZipFile
 from nltk.pathsec import open as _secure_open
 from nltk.pathsec import urlopen as _secure_urlopen
+from nltk.pathsec import validate_path as _validate_path
 
 # Reject unsafe no-protocol paths: traversal segments, trailing '..', absolute paths,
 # backslashes, Windows drive letters. Use a raw-string pattern and do not anchor only
@@ -366,6 +368,27 @@ def normalize_resource_name(resource_name, allow_relative=True, relative_path=No
 ######################################################################
 # Path Pointers
 ######################################################################
+
+
+def make_staging_dir(prefix: str = "nltk_") -> str:
+    """Create private model output under a writable, authorized data root."""
+    if any(char in prefix for char in ("/", "\\", "\x00", ":")):
+        raise ValueError("Unsafe staging prefix: expected a filename fragment")
+    for root in path:
+        base = os.path.realpath(os.path.expanduser(str(root)))
+        try:
+            _validate_path(base, context="nltk.data.make_staging_dir")
+            os.makedirs(base, exist_ok=True)
+            staged = tempfile.mkdtemp(prefix=prefix, dir=base)
+            try:
+                _validate_path(staged, context="nltk.data.make_staging_dir")
+            except BaseException:
+                os.rmdir(staged)
+                raise
+            return staged
+        except (OSError, ValueError):
+            continue
+    raise PermissionError("No writable in-sandbox NLTK data root for model output")
 
 
 class PathPointer(metaclass=ABCMeta):

@@ -1580,27 +1580,43 @@ def load_maxent_params(tab_dir):
     return wgt, mpg, lab, aon
 
 
-def save_maxent_params(wgt, mpg, lab, aon, tab_dir="/tmp"):
+def save_maxent_params(wgt, mpg, lab, aon, tab_dir=None):
+    """Save parameters inside the data sandbox and return their directory."""
+    from os import makedirs
+    from os.path import realpath
 
-    from os import mkdir
-    from os.path import isdir
-
+    from nltk.data import make_staging_dir
+    from nltk.pathsec import open as pathsec_open
+    from nltk.pathsec import validate_path
     from nltk.tabdata import MaxentEncoder
 
+    tab_dir = (
+        make_staging_dir(prefix="nltk_maxent_")
+        if tab_dir is None
+        else realpath(tab_dir)
+    )
+    validate_path(tab_dir, context="save_maxent_params")
+    makedirs(tab_dir, exist_ok=True)
     menc = MaxentEncoder()
-    if not isdir(tab_dir):
-        mkdir(tab_dir)
-
     print(f"Saving Maxent parameters in {tab_dir}")
 
-    with open(f"{tab_dir}/weights.txt", "w") as f:
+    with pathsec_open(
+        f"{tab_dir}/weights.txt", "w", encoding="utf-8", newline="\n"
+    ) as f:
         f.write(f"{menc.list2txt(map(repr, wgt.tolist()))}")
-    with open(f"{tab_dir}/mapping.tab", "w") as f:
+    with pathsec_open(
+        f"{tab_dir}/mapping.tab", "w", encoding="utf-8", newline="\n"
+    ) as f:
         f.write(f"{menc.tupdict2tab(mpg)}")
-    with open(f"{tab_dir}/labels.txt", "w") as f:
+    with pathsec_open(
+        f"{tab_dir}/labels.txt", "w", encoding="utf-8", newline="\n"
+    ) as f:
         f.write(f"{menc.list2txt(lab)}")
-    with open(f"{tab_dir}/alwayson.tab", "w") as f:
+    with pathsec_open(
+        f"{tab_dir}/alwayson.tab", "w", encoding="utf-8", newline="\n"
+    ) as f:
         f.write(f"{menc.ivdict2tab(aon)}")
+    return tab_dir
 
 
 def maxent_pos_tagger():

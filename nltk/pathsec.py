@@ -12,6 +12,7 @@ import builtins
 import http.client
 import ipaddress
 import os
+import re
 import socket
 import stat
 import sys
@@ -139,16 +140,21 @@ def validate_path(path_input, context="NLTK", required_root=None):
     :param required_root: If provided, enforces that the path is strictly
                           within this specific directory (scoped sandbox).
     """
-    if isinstance(path_input, int) or not path_input or not str(path_input).strip():
+    if isinstance(path_input, int) or not path_input:
         return
     try:
         raw = path_input.path if hasattr(path_input, "path") else str(path_input)
 
+        # Filesystem paths must not inherit network-URL authorization.
+        if re.match(r"^\s*(?:https?|ftp):", raw, re.IGNORECASE):
+            raise ValueError(f"Security Violation [{context}]: URL is not a model path")
         if "://" in raw:
             parsed = urlparse(raw)
-            if parsed.scheme in ("http", "https", "ftp"):
-                return
             if parsed.scheme == "file":
+                if parsed.query or parsed.fragment or ";" in parsed.path:
+                    raise ValueError(
+                        f"Security Violation [{context}]: ambiguous file URL"
+                    )
                 raw = unquote(parsed.path)
 
         # Resolve path to catch symlink escapes
@@ -779,6 +785,11 @@ def open(file, mode="r", *, context="pathsec.open", required_root=None, **kwargs
     if type(raw_path) is bytes:
         raw_path = os.fsdecode(raw_path)
 
+    # builtins.open interprets file URLs as literal filenames, not URL paths.
+    if re.match(r"^\s*(?:https?|ftp|file):", raw_path, re.IGNORECASE):
+        raise ValueError(
+            f"Security Violation [{context}]: URL is not a filesystem path"
+        )
     # 4. Execution Substitution: validate and open the pure primitive, discarding the original object
     validate_path(raw_path, context=context, required_root=required_root)
     # 5. Under enforcement on POSIX, additionally close the validate-then-open

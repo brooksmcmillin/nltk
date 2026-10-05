@@ -21,6 +21,7 @@ except ImportError:
     pass
 
 from nltk.parse import DependencyEvaluator, DependencyGraph, ParserI
+from nltk.pathsec import open as pathsec_open
 from nltk.picklesec import allowlisted_pickle_load
 
 # Modules whose globals a saved TransitionParser model legitimately needs. The
@@ -560,8 +561,10 @@ class TransitionParser(ParserI):
             )
 
             model.fit(x_train, y_train)
-            # Save the model to file name (as pickle)
-            pickle.dump(model, open(modelfile, "wb"))
+            with pathsec_open(
+                modelfile, "wb", context="TransitionParser.train"
+            ) as model_file:
+                pickle.dump(model, model_file)
         finally:
             remove(input_file.name)
 
@@ -580,7 +583,7 @@ class TransitionParser(ParserI):
         # e.g. os.system -- raises UnpicklingError instead of executing. See
         # nltk/picklesec.py and huntr report
         # https://huntr.com/bounties/38abc191-0525-42a1-96fd-262c1c187012
-        with open(modelFile, "rb") as f:
+        with pathsec_open(modelFile, "rb", context="TransitionParser.parse") as f:
             model = allowlisted_pickle_load(
                 f,
                 allowed_modules=_MODEL_ALLOWED_MODULES,
